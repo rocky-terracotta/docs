@@ -17,10 +17,6 @@
     {
       "url": "https://api.casebyte.ai",
       "description": "Production"
-    },
-    {
-      "url": "http://localhost:8787",
-      "description": "Local development"
     }
   ],
   "security": [{ "bearerAuth": [] }],
