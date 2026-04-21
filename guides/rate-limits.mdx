@@ -12,9 +12,8 @@ for everyone.
 |---|---|---|
 | **10 requests** | **60 seconds** | Per API key |
 
-The window is a fixed-start sliding window — your first request after a
-60-second gap starts a fresh window, and you have 10 requests to spend before
-it resets.
+Your first request after a 60-second gap starts a fresh window, and you have
+10 requests to spend before it resets.
 
 If you have multiple API keys, each one gets its own independent budget.
 If multiple processes share a single key (e.g. a worker pool), they share the
@@ -28,11 +27,16 @@ Every successful response (`200`) and rate-limit response (`429`) includes:
 |---|---|
 | `X-RateLimit-Limit` | Your per-window quota (always `10` today). |
 | `X-RateLimit-Remaining` | Requests remaining in the current window. |
-| `X-RateLimit-Reset` | Unix timestamp (seconds) when the current window resets. |
-| `Retry-After` | (429 only) Seconds to wait before retrying. |
 
 You don't need to track windows yourself — just read `X-RateLimit-Remaining`
 and pace your requests when it gets low.
+
+<Note>
+  We deliberately don't return `Retry-After` or a reset timestamp on `429`
+  responses. Use exponential backoff with jitter instead — it's friendlier to
+  the service and to your own latency budget than retrying at the exact
+  moment the window rolls.
+</Note>
 
 ## When you exceed the limit
 
@@ -42,25 +46,25 @@ Over-quota requests get `429 Too Many Requests` with this body:
 {
   "error": {
     "code": "rate_limited",
-    "message": "Rate limit exceeded: 10 requests per minute. Retry in 42s."
+    "message": "Rate limit exceeded."
   }
 }
 ```
 
-…and a `Retry-After: 42` header.
-
 ## A well-behaved client
 
-Always honour `Retry-After`. A naive retry loop:
+Back off on `429` with exponential delay and jitter:
 
 ```typescript
-async function fetchWithRateLimit(url: string, init: RequestInit): Promise<Response> {
-  while (true) {
+async function fetchWithBackoff(url: string, init: RequestInit): Promise<Response> {
+  for (let attempt = 0; attempt < 6; attempt++) {
     const res = await fetch(url, init);
     if (res.status !== 429) return res;
-    const wait = parseInt(res.headers.get("Retry-After") ?? "60", 10);
-    await new Promise((r) => setTimeout(r, wait * 1000));
+    const baseMs = Math.min(60_000, 1_000 * 2 ** attempt);
+    const jitterMs = Math.random() * baseMs;
+    await new Promise((r) => setTimeout(r, baseMs + jitterMs));
   }
+  throw new Error("rate-limited after 6 attempts");
 }
 ```
 
@@ -71,11 +75,11 @@ instead of waiting to be 429'd:
 async function callAndPace(url: string, init: RequestInit) {
   const res = await fetch(url, init);
   const remaining = parseInt(res.headers.get("X-RateLimit-Remaining") ?? "10", 10);
-  const reset = parseInt(res.headers.get("X-RateLimit-Reset") ?? "0", 10);
 
-  if (remaining === 0 && reset) {
-    const sleepMs = Math.max(0, reset * 1000 - Date.now()) + 100;
-    await new Promise((r) => setTimeout(r, sleepMs));
+  if (remaining === 0) {
+    // Window is at most 60s long. Wait it out (plus a little jitter) before
+    // the next call to avoid a guaranteed 429.
+    await new Promise((r) => setTimeout(r, 60_000 + Math.random() * 1_000));
   }
   return res;
 }

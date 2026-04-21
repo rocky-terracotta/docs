@@ -84,18 +84,17 @@ page. See [Quickstart](/quickstart) for the full walkthrough.
 | Field | Value |
 |---|---|
 | Jurisdiction | Hong Kong (HKSAR) |
-| Courts | CFA, CA, CFI, DC, LT, FC, MC and tribunals |
+| Courts | Court of Final Appeal, Court of Appeal, Court of First Instance, District Court, Family Court, Magistrates' Courts, plus tribunals (Lands, Labour, Small Claims, Obscene Articles, Competition) and the Coroner's Court |
 | Approximate corpus size | ~157,000 judgments |
-| Earliest judgment | 1946 |
 | Update cadence | Daily, with new judgments typically available within 24 hours of publication |
 
 UK and other Commonwealth jurisdictions are not exposed in v1.
 
 ## Rate limits
 
-10 requests per minute, per API key. Responses include `X-RateLimit-*` headers
-so you can pace yourself; over-limit requests return `429` with a `Retry-After`
-header. Full details in [Rate limits](/guides/rate-limits).
+10 requests per minute, per API key. Responses include `X-RateLimit-Limit`
+and `X-RateLimit-Remaining` headers so you can pace yourself; over-limit
+requests return `429`. Full details in [Rate limits](/guides/rate-limits).
 
 ## Need more?
 

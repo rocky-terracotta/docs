@@ -19,7 +19,7 @@
       "description": "Production"
     },
     {
-      "url": "http://192.168.3.35:8787",
+      "url": "http://localhost:8787",
       "description": "Local development"
     }
   ],
@@ -56,8 +56,8 @@
     "/v1/cases/search": {
       "get": {
         "tags": ["Cases"],
-        "summary": "Search cases",
-        "description": "Boolean / phrase / fuzzy search across the Hong Kong case-law corpus. The `q` parameter accepts plain words, exact phrases (wrap in `\"...\"`), or full Lucene boolean queries (use `AND` / `OR` / `NOT`). See the [search syntax guide](https://docs.casebyte.ai/guides/search-syntax) for details.",
+        "summary": "Search Cases",
+        "description": "Boolean / phrase / fuzzy search across the Hong Kong case-law corpus. The `q` parameter accepts plain words, exact phrases (wrap in `\"...\"`), or boolean queries (use `AND` / `OR` / `NOT`). See the [search syntax guide](https://docs.casebyte.ai/guides/search-syntax) for details.",
         "parameters": [
           {
             "name": "q",
@@ -90,21 +90,24 @@
           {
             "name": "court",
             "in": "query",
-            "description": "Comma-separated list of court codes to filter by (e.g. `HKCFA,HKCA`).",
-            "schema": { "type": "string" },
+            "description": "Comma-separated list of HK court codes to filter by (e.g. `HKCFA,HKCA`). Case-insensitive on input. Unknown codes return `400 invalid_court`.",
+            "schema": {
+              "type": "string",
+              "pattern": "^(HKCFA|HKCA|HKCFI|HKDC|HKMAGC|HKFC|HKLDT|HKLAT|HKSCT|HKOAT|HKCT|HKCRC)(,(HKCFA|HKCA|HKCFI|HKDC|HKMAGC|HKFC|HKLDT|HKLAT|HKSCT|HKOAT|HKCT|HKCRC))*$"
+            },
             "example": "HKCFA,HKCA"
           },
           {
             "name": "start",
             "in": "query",
-            "description": "Inclusive lower bound for `publish_date`. Accepts `YYYY`, `YYYY-MM`, or `YYYY-MM-DD`.",
+            "description": "Inclusive lower bound for `publish_date`. Must be `YYYY-MM-DD`.",
             "schema": { "type": "string", "format": "date" },
             "example": "2020-01-01"
           },
           {
             "name": "end",
             "in": "query",
-            "description": "Inclusive upper bound for `publish_date`. Same formats as `start`.",
+            "description": "Inclusive upper bound for `publish_date`. Must be `YYYY-MM-DD`. Must be on or after `start`.",
             "schema": { "type": "string", "format": "date" },
             "example": "2023-12-31"
           },
@@ -146,8 +149,7 @@
             "description": "Search results.",
             "headers": {
               "X-RateLimit-Limit": { "$ref": "#/components/headers/RateLimitLimit" },
-              "X-RateLimit-Remaining": { "$ref": "#/components/headers/RateLimitRemaining" },
-              "X-RateLimit-Reset": { "$ref": "#/components/headers/RateLimitReset" }
+              "X-RateLimit-Remaining": { "$ref": "#/components/headers/RateLimitRemaining" }
             },
             "content": {
               "application/json": {
@@ -187,8 +189,8 @@
     "/v1/cases/{id}": {
       "get": {
         "tags": ["Cases"],
-        "summary": "Get a case",
-        "description": "Look up a case by canonical `case_id` (e.g. `HKCFA_2023_5`), neutral citation (e.g. `[2023] HKCFA 5`), or action number (e.g. `FACV 5/2022`). The API tries each format in order and returns the first match. The `matched_by` field in the response tells you which form was used. See the [identifiers guide](https://docs.casebyte.ai/guides/identifiers) for details on each format and URL-encoding.",
+        "summary": "Get Case Judgment",
+        "description": "Look up a case by canonical `case_id` (e.g. `HKCFA_2023_5`), neutral citation (e.g. `[2023] HKCFA 5`), or action number (e.g. `FACV 5/2022` or `FACV5/2022` — the space is optional). The API tries each format in order and returns the first match. The `matched_by` field in the response tells you which form was used. See the [identifiers guide](https://docs.casebyte.ai/guides/identifiers) for details on each format and URL-encoding.",
         "parameters": [
           {
             "name": "id",
@@ -217,8 +219,7 @@
             "description": "Case found.",
             "headers": {
               "X-RateLimit-Limit": { "$ref": "#/components/headers/RateLimitLimit" },
-              "X-RateLimit-Remaining": { "$ref": "#/components/headers/RateLimitRemaining" },
-              "X-RateLimit-Reset": { "$ref": "#/components/headers/RateLimitReset" }
+              "X-RateLimit-Remaining": { "$ref": "#/components/headers/RateLimitRemaining" }
             },
             "content": {
               "application/json": {
@@ -247,7 +248,7 @@
     "/v1/cases/{id}/cited-by": {
       "get": {
         "tags": ["Cases"],
-        "summary": "Cited-by",
+        "summary": "Get Citing Cases",
         "description": "Returns later judgments that cite the given case. Combines direct case-to-case citations with action-number citations (where the citing case mentioned an action number that wasn't resolved to a case ID by the citation parser). Results are deduplicated by `case_id` and sorted by `publish_date` descending. Pagination is not supported — the full list is returned in a single response.",
         "parameters": [
           {
@@ -264,8 +265,7 @@
             "description": "List of citing cases.",
             "headers": {
               "X-RateLimit-Limit": { "$ref": "#/components/headers/RateLimitLimit" },
-              "X-RateLimit-Remaining": { "$ref": "#/components/headers/RateLimitRemaining" },
-              "X-RateLimit-Reset": { "$ref": "#/components/headers/RateLimitReset" }
+              "X-RateLimit-Remaining": { "$ref": "#/components/headers/RateLimitRemaining" }
             },
             "content": {
               "application/json": {
@@ -320,16 +320,6 @@
         "description": "Requests remaining in the current window.",
         "schema": { "type": "integer" },
         "example": 9
-      },
-      "RateLimitReset": {
-        "description": "Unix timestamp (seconds) when the current window resets.",
-        "schema": { "type": "integer" },
-        "example": 1735689660
-      },
-      "RetryAfter": {
-        "description": "Seconds to wait before retrying.",
-        "schema": { "type": "integer" },
-        "example": 42
       }
     },
     "schemas": {
@@ -502,7 +492,7 @@
     },
     "responses": {
       "BadRequest": {
-        "description": "The request was malformed or missing required parameters.",
+        "description": "The request was malformed or missing required parameters. The `error.code` distinguishes the specific cause; common values include `missing_query`, `query_too_long`, `invalid_scope`, `invalid_order`, `invalid_int`, `invalid_range`, `invalid_court`, `invalid_date`, `invalid_date_range`, `pagination_too_deep`, `missing_identifier`, and `invalid_identifier`.",
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Error" },
@@ -521,7 +511,51 @@
                 "value": {
                   "error": {
                     "code": "invalid_scope",
-                    "message": "`scope` must be one of: all, case_name, judgment."
+                    "message": "`scope` must be one of: all, case_name, judgment.",
+                    "details": { "field": "scope", "value": "case", "allowed": ["all", "case_name", "judgment"] }
+                  }
+                }
+              },
+              "invalidCourt": {
+                "summary": "Unknown court code",
+                "value": {
+                  "error": {
+                    "code": "invalid_court",
+                    "message": "Unknown court code: HKMC. Valid codes: HKCFA, HKCA, HKCFI, HKDC, HKMAGC, HKFC, HKLDT, HKLAT, HKSCT, HKOAT, HKCT, HKCRC.",
+                    "details": {
+                      "invalid": ["HKMC"],
+                      "valid": ["HKCFA", "HKCA", "HKCFI", "HKDC", "HKMAGC", "HKFC", "HKLDT", "HKLAT", "HKSCT", "HKOAT", "HKCT", "HKCRC"]
+                    }
+                  }
+                }
+              },
+              "invalidDate": {
+                "summary": "Malformed date",
+                "value": {
+                  "error": {
+                    "code": "invalid_date",
+                    "message": "`start` must be an ISO date in YYYY-MM-DD format.",
+                    "details": { "field": "start", "value": "2023" }
+                  }
+                }
+              },
+              "invalidRange": {
+                "summary": "Out-of-range integer",
+                "value": {
+                  "error": {
+                    "code": "invalid_range",
+                    "message": "`limit` must be between 1 and 100.",
+                    "details": { "field": "limit", "value": 500, "min": 1, "max": 100 }
+                  }
+                }
+              },
+              "paginationTooDeep": {
+                "summary": "`offset + limit` exceeds the result-window cap",
+                "value": {
+                  "error": {
+                    "code": "pagination_too_deep",
+                    "message": "`offset` + `limit` must be at most 10000. Use court / date filters to narrow the result set instead of paginating deeper.",
+                    "details": { "offset": 9999, "limit": 100, "max": 10000 }
                   }
                 }
               }
@@ -582,12 +616,10 @@
         }
       },
       "RateLimited": {
-        "description": "You exceeded your per-minute quota.",
+        "description": "You exceeded your per-minute quota. Back off with exponential delay and jitter — `Retry-After` is intentionally not returned.",
         "headers": {
-          "Retry-After": { "$ref": "#/components/headers/RetryAfter" },
           "X-RateLimit-Limit": { "$ref": "#/components/headers/RateLimitLimit" },
-          "X-RateLimit-Remaining": { "$ref": "#/components/headers/RateLimitRemaining" },
-          "X-RateLimit-Reset": { "$ref": "#/components/headers/RateLimitReset" }
+          "X-RateLimit-Remaining": { "$ref": "#/components/headers/RateLimitRemaining" }
         },
         "content": {
           "application/json": {
@@ -595,7 +627,7 @@
             "example": {
               "error": {
                 "code": "rate_limited",
-                "message": "Rate limit exceeded: 10 requests per minute. Retry in 42s."
+                "message": "Rate limit exceeded."
               }
             }
           }

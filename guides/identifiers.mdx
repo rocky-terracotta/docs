@@ -59,11 +59,19 @@ The court prefix in a case ID matches the official HK court code:
 | `HKCA` | Court of Appeal |
 | `HKCFI` | Court of First Instance |
 | `HKDC` | District Court |
-| `HKLT` | Lands Tribunal |
+| `HKMAGC` | Magistrates' Courts |
 | `HKFC` | Family Court |
-| `HKMC` | Magistrates' Courts |
+| `HKLDT` | Lands Tribunal |
+| `HKLAT` | Labour Tribunal |
+| `HKSCT` | Small Claims Tribunal |
+| `HKOAT` | Obscene Articles Tribunal |
+| `HKCT` | Competition Tribunal |
+| `HKCRC` | Coroner's Court |
 
-Use these same codes when filtering search results with `?court=`.
+Use these same codes when filtering search results with `?court=`. The API
+rejects unknown codes with `400 invalid_court` and lists the valid set in the
+error message — so a typo like `?court=HKMC` (no such code) won't silently
+return zero results.
 
 ## Neutral citation
 
@@ -129,6 +137,10 @@ curl https://api.casebyte.ai/v1/cases/FACV%205%2F2022 \
 A single case can have **multiple action numbers** (e.g. consolidated appeals).
 The retrieval endpoint will match if **any** of them matches; the response's
 `action_numbers` field is an array containing all of them.
+
+The space between the prefix and the number is **optional** — both
+`FACV 3/2020` and `FACV3/2020` resolve to the same case. URL-encode the slash
+either way (`%2F`) and the space (`%20`) when present.
 
 The response includes `"matched_by": "action_number"`.
 

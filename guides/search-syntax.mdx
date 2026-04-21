@@ -4,8 +4,8 @@ description: "Phrases, boolean operators, field scoping, and fuzzy matching."
 ---
 
 The `q` parameter on `GET /v1/cases/search` accepts plain words, exact phrases,
-and full Lucene boolean queries. The API automatically picks the right
-matching strategy based on the shape of your input.
+and boolean queries. The API automatically picks the right matching strategy
+based on the shape of your input.
 
 ## The three modes
 
@@ -15,7 +15,7 @@ The API inspects your query and routes it to one of three search modes:
 |---|---|---|
 | `tort negligence` | **Match** | Tokenised, ranked by relevance. Default mode. Fuzzy matching enabled for `scope=case_name`. |
 | `"wednesbury unreasonable"` (wrapped in `"..."`) | **Phrase** | Exact phrase match — words must appear adjacent and in order. |
-| `tort AND (negligence OR breach)` (contains `AND`/`OR`/`NOT`) | **Boolean** | Full Lucene `query_string` syntax with grouping, field scoping, wildcards, etc. |
+| `tort AND (negligence OR breach)` (contains `AND`/`OR`/`NOT`) | **Boolean** | Full boolean syntax with grouping, field scoping, wildcards, and required/forbidden terms. |
 
 You don't have to pick — just write your query and the API does the right
 thing. The detection is purely string-based: `"..."` triggers phrase mode, the
@@ -65,8 +65,8 @@ combine terms. Parentheses group sub-expressions:
 q=trespass AND (negligence OR conversion) NOT contract
 ```
 
-The presence of any boolean operator switches the API into Lucene
-`query_string` mode, which unlocks the full grammar:
+The presence of any boolean operator switches the API into boolean mode,
+which unlocks the full grammar:
 
 | Feature | Example | Notes |
 |---|---|---|
@@ -107,7 +107,7 @@ the search to one field, pass `scope`:
 
 Field scoping is independent of mode — phrase and boolean queries both honour
 `scope`. Inside the **boolean** mode you can also do per-clause field scoping
-using Lucene syntax:
+with `field:value`:
 
 ```
 q=case_name:"Donoghue v Stevenson" OR doc_text:snail
@@ -129,7 +129,8 @@ curl -G https://api.casebyte.ai/v1/cases/search \
 # matches "Donoghue v Stevenson" despite the typo
 ```
 
-For controlled fuzzy matching in boolean mode, use the Lucene `~` syntax:
+For controlled fuzzy matching in boolean mode, append `~N` to a term (where
+`N` is the maximum edit distance, 0–2):
 
 ```
 q=donoghue~1 AND stevenson
@@ -151,8 +152,8 @@ for the full list of court codes.
 
 ### `start` / `end` — ISO dates
 
-Both are optional and inclusive. Dates can be a year (`2023`), a year+month
-(`2023-04`), or a full date (`2023-04-21`).
+Both are optional and inclusive, in `YYYY-MM-DD` format. `start` must be on
+or before `end`.
 
 ```
 ?q=negligence&start=2020-01-01&end=2023-12-31
@@ -166,9 +167,10 @@ Both are optional and inclusive. Dates can be a year (`2023`), a year+month
 | `limit` | `20` | `1..100` | Page size. |
 | `offset` | `0` | `0..10000` | Skip-N pagination. |
 
-The API caps `offset + limit` at 10,000. If you need to walk further into the
-corpus than that, narrow your search with court / date filters, or contact us
-for a bulk export.
+The API caps `offset + limit` at 10,000 — requests above that are rejected
+with `400 pagination_too_deep`. If you need to walk further into the corpus
+than that, narrow your search with court / date filters, or contact us for a
+bulk export.
 
 ## Response: highlights
 
@@ -202,7 +204,7 @@ and 1 for `case_name`.
 - **Phrases beat AND.** `"strict liability"` is more precise than
   `strict AND liability`, which would match documents mentioning both words
   anywhere.
-- **Don't paginate beyond `offset=10000`.** The API will reject it. Use
-  filters to narrow, not pages to walk.
+- **Don't paginate beyond `offset + limit = 10000`.** The API will reject it
+  with `400 pagination_too_deep`. Use filters to narrow, not pages to walk.
 - **Rate limit applies per request, not per page.** A search returning 100
   results costs the same as one returning 1. Prefer larger pages.

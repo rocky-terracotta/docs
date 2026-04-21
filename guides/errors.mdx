@@ -30,8 +30,17 @@ Always switch on `error.code`, never on `error.message`.
 | Code | Meaning | Fix |
 |---|---|---|
 | `missing_query` | The `q` parameter is missing or empty on `/v1/cases/search`. | Include a non-empty `q`. |
+| `query_too_long` | `q` exceeded the 2000-character cap. | Trim the query. |
 | `invalid_scope` | `scope` was not one of `all`, `case_name`, `judgment`. | Use one of the three valid values. |
 | `invalid_order` | `order` was not `asc` or `desc`. | Use `asc` or `desc`. |
+| `invalid_int` | `limit` or `offset` was not an integer. | Send a base-10 integer string. |
+| `invalid_range` | `limit` or `offset` was outside its allowed range. `details` echoes `min`/`max`. | Clamp to the documented range. |
+| `invalid_court` | `court` contained an unknown HK court code. `details.valid` lists the accepted set. | Use one of the codes from [Identifiers](/guides/identifiers#court-codes). |
+| `invalid_date` | `start` or `end` was not a real `YYYY-MM-DD` date. | Reformat as `YYYY-MM-DD`. |
+| `invalid_date_range` | `start` was after `end`. | Swap them or fix the typo. |
+| `pagination_too_deep` | `offset + limit` exceeded 10,000 (the deepest page Elasticsearch will paginate into). | Narrow the search with court / date filters rather than paging deeper. |
+| `missing_identifier` | The `:id` path parameter was empty (after URL-decoding and trimming). | Provide a case ID, neutral citation, or action number. |
+| `invalid_identifier` | The `:id` path parameter was over 200 characters or contained characters that can't appear in any of the three accepted forms. | Check the identifier format. See [Identifiers](/guides/identifiers). |
 
 ### `401 Unauthorized`
 
@@ -52,7 +61,7 @@ Always switch on `error.code`, never on `error.message`.
 
 | Code | Meaning | Fix |
 |---|---|---|
-| `rate_limited` | You exceeded your per-minute quota. | Honour the `Retry-After` header before retrying. See [Rate limits](/guides/rate-limits). |
+| `rate_limited` | You exceeded your per-minute quota. | Back off with exponential delay + jitter. See [Rate limits](/guides/rate-limits). |
 
 ### `500 Internal Server Error`
 
@@ -65,7 +74,7 @@ Always switch on `error.code`, never on `error.message`.
 | Status | Retry? | How |
 |---|---|---|
 | `4xx` (except `429`) | No | Fix the request first. Retrying won't help. |
-| `429` | Yes | Wait at least `Retry-After` seconds, then retry. |
+| `429` | Yes | Exponential backoff with jitter — see below. |
 | `500` | Yes | Exponential backoff (1s, 2s, 4s, 8s…). Cap retries at 3–5. |
 | Network error / timeout | Yes | Same as `500`. |
 
@@ -74,13 +83,10 @@ A simple, well-behaved retry loop:
 ```typescript
 async function callApi(url: string, init: RequestInit, attempt = 0): Promise<Response> {
   const res = await fetch(url, init);
-  if (res.status === 429) {
-    const wait = parseInt(res.headers.get("Retry-After") ?? "1", 10) * 1000;
-    await new Promise((r) => setTimeout(r, wait));
-    return callApi(url, init, attempt + 1);
-  }
-  if (res.status >= 500 && attempt < 4) {
-    await new Promise((r) => setTimeout(r, 2 ** attempt * 1000));
+  if ((res.status === 429 || res.status >= 500) && attempt < 4) {
+    const baseMs = 2 ** attempt * 1_000;
+    const jitterMs = Math.random() * baseMs;
+    await new Promise((r) => setTimeout(r, baseMs + jitterMs));
     return callApi(url, init, attempt + 1);
   }
   return res;
@@ -94,7 +100,7 @@ async function callApi(url: string, init: RequestInit, attempt = 0): Promise<Res
     The most common cause is the wrong identifier format. Check:
 
     - Did you URL-encode square brackets in a neutral citation? `[2023] HKCFA 5` must be sent as `%5B2023%5D%20HKCFA%205`.
-    - Did you URL-encode the slash in an action number? `FACV 5/2022` must be sent as `FACV%205%2F2022`.
+    - Did you URL-encode the slash in an action number? `FACV 5/2022` must be sent as `FACV%205%2F2022`. The space is optional — `FACV5%2F2022` resolves to the same case.
     - Is the case ID in canonical form? Case IDs are `COURT_YEAR_NUM` (e.g. `HKCFA_2023_5`). Anything with extra trailing segments will not match.
 
     See [Identifiers](/guides/identifiers).
