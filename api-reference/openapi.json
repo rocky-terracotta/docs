@@ -303,7 +303,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "cb_live_*",
-        "description": "Casebyte API key, prefixed with `cb_live_`. Generate one in your [casebyte.ai settings](https://casebyte.ai/settings)."
+        "description": "Casebyte API key, prefixed with `cb_live_`. Generate one from your [casebyte.ai dashboard](https://casebyte.ai/dashboard)."
       }
     },
     "headers": {

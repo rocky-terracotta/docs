@@ -68,7 +68,7 @@
     "primary": {
       "type": "button",
       "label": "Get an API key",
-      "href": "https://casebyte.ai/settings"
+      "href": "https://casebyte.ai/dashboard"
     }
   },
   "api": {

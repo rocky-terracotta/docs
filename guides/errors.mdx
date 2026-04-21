@@ -48,7 +48,7 @@ Always switch on `error.code`, never on `error.message`.
 |---|---|---|
 | `missing_credentials` | No `Authorization` header, or it doesn't start with `Bearer `. | Include `Authorization: Bearer cb_live_...`. |
 | `invalid_credentials` | Token doesn't start with `cb_live_`, or no key matches in our database. | Check your key. Generate a new one if it was lost. |
-| `revoked_credentials` | The key existed but has been revoked. | Generate a new key in [settings](https://casebyte.ai/settings). |
+| `revoked_credentials` | The key existed but has been revoked. | Generate a new key from your [dashboard](https://casebyte.ai/dashboard). |
 
 ### `404 Not Found`
 
