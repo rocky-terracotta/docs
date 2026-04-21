@@ -1,0 +1,115 @@
+---
+title: Errors
+description: "Every error code the API can return, and what to do about it."
+---
+
+All errors are returned as JSON with a consistent envelope:
+
+```json
+{
+  "error": {
+    "code": "case_not_found",
+    "message": "No case matched that identifier.",
+    "details": { "identifier": "HKCFA_9999_0" }
+  }
+}
+```
+
+| Field | Stable? | Use it for |
+|---|---|---|
+| `error.code` | Yes | Branching in your code. Codes do not change without a major version bump. |
+| `error.message` | No | Logging, surfacing to humans. Wording may change. |
+| `error.details` | No | Optional extra context, varies by endpoint. |
+
+Always switch on `error.code`, never on `error.message`.
+
+## Error codes
+
+### `400 Bad Request`
+
+| Code | Meaning | Fix |
+|---|---|---|
+| `missing_query` | The `q` parameter is missing or empty on `/v1/cases/search`. | Include a non-empty `q`. |
+| `invalid_scope` | `scope` was not one of `all`, `case_name`, `judgment`. | Use one of the three valid values. |
+| `invalid_order` | `order` was not `asc` or `desc`. | Use `asc` or `desc`. |
+
+### `401 Unauthorized`
+
+| Code | Meaning | Fix |
+|---|---|---|
+| `missing_credentials` | No `Authorization` header, or it doesn't start with `Bearer `. | Include `Authorization: Bearer cb_live_...`. |
+| `invalid_credentials` | Token doesn't start with `cb_live_`, or no key matches in our database. | Check your key. Generate a new one if it was lost. |
+| `revoked_credentials` | The key existed but has been revoked. | Generate a new key in [settings](https://casebyte.ai/settings). |
+
+### `404 Not Found`
+
+| Code | Meaning | Fix |
+|---|---|---|
+| `case_not_found` | No case matched the identifier. The `error.details.identifier` echoes what you sent. | Double-check the identifier format. See [Identifiers](/guides/identifiers). |
+| `not_found` | The route doesn't exist. | Check the URL — note that all resource endpoints live under `/v1/`. |
+
+### `429 Too Many Requests`
+
+| Code | Meaning | Fix |
+|---|---|---|
+| `rate_limited` | You exceeded your per-minute quota. | Honour the `Retry-After` header before retrying. See [Rate limits](/guides/rate-limits). |
+
+### `500 Internal Server Error`
+
+| Code | Meaning | Fix |
+|---|---|---|
+| `internal_error` | Something failed on our side. | Retry with exponential backoff. If it persists, [report it](mailto:support@casebyte.ai) with the response timestamp. |
+
+## Retry strategy
+
+| Status | Retry? | How |
+|---|---|---|
+| `4xx` (except `429`) | No | Fix the request first. Retrying won't help. |
+| `429` | Yes | Wait at least `Retry-After` seconds, then retry. |
+| `500` | Yes | Exponential backoff (1s, 2s, 4s, 8s…). Cap retries at 3–5. |
+| Network error / timeout | Yes | Same as `500`. |
+
+A simple, well-behaved retry loop:
+
+```typescript
+async function callApi(url: string, init: RequestInit, attempt = 0): Promise<Response> {
+  const res = await fetch(url, init);
+  if (res.status === 429) {
+    const wait = parseInt(res.headers.get("Retry-After") ?? "1", 10) * 1000;
+    await new Promise((r) => setTimeout(r, wait));
+    return callApi(url, init, attempt + 1);
+  }
+  if (res.status >= 500 && attempt < 4) {
+    await new Promise((r) => setTimeout(r, 2 ** attempt * 1000));
+    return callApi(url, init, attempt + 1);
+  }
+  return res;
+}
+```
+
+## Common pitfalls
+
+<AccordionGroup>
+  <Accordion title="I'm getting `case_not_found` for a case I know exists" icon="question">
+    The most common cause is the wrong identifier format. Check:
+
+    - Did you URL-encode square brackets in a neutral citation? `[2023] HKCFA 5` must be sent as `%5B2023%5D%20HKCFA%205`.
+    - Did you URL-encode the slash in an action number? `FACV 5/2022` must be sent as `FACV%205%2F2022`.
+    - Is the case ID in canonical form? Case IDs are `COURT_YEAR_NUM` (e.g. `HKCFA_2023_5`). Anything with extra trailing segments will not match.
+
+    See [Identifiers](/guides/identifiers).
+  </Accordion>
+  <Accordion title="My boolean query is being treated as plain text" icon="question">
+    Boolean operators must be **uppercase** with whitespace around them. `tort and breach` searches for the literal words tort, and, breach. `tort AND breach` is a boolean query. See [Search syntax](/guides/search-syntax).
+  </Accordion>
+  <Accordion title="I keep getting `429` even though I'm only making a few requests" icon="question">
+    The limit is **per API key**, not per IP. If you have multiple processes sharing the same key (e.g. a worker pool), they share the budget. Issue separate keys per worker if you need to parallelise.
+  </Accordion>
+  <Accordion title="Search returns 0 results for a query I expect to match" icon="question">
+    Try in this order:
+    1. Drop court / date filters and search the whole corpus.
+    2. Switch from a phrase (`"..."`) to a plain match query.
+    3. If the case name is uncommon, try `scope=case_name` (fuzzy match enabled).
+    4. Check `start` / `end` — dates outside the corpus return 0.
+  </Accordion>
+</AccordionGroup>

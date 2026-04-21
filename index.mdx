@@ -1,97 +1,103 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: Casebyte API
+description: "Search and retrieve Hong Kong case law over a single REST API."
 ---
 
-## Setting up
+The Casebyte API gives you programmatic access to the same Hong Kong case-law
+corpus that powers [casebyte.ai](https://casebyte.ai) — roughly 157,000
+judgments from the HKSAR courts, with full text, neutral citations, and
+case-to-case citation links.
 
-Get your documentation site up and running in minutes.
+It's a small, opinionated REST API. Three endpoints, one auth scheme, JSON in
+and out.
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get an API key and make your first request in under five minutes.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="API reference" icon="code" href="/api-reference/introduction">
+    Endpoints, parameters, response shapes, and error codes.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Search syntax" icon="magnifying-glass" href="/guides/search-syntax">
+    Phrases, boolean operators, field scoping, and fuzzy matching.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Identifiers" icon="fingerprint" href="/guides/identifiers">
+    Case IDs, neutral citations, and action numbers — and when to use each.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What you can do
 
-Everything you need to create world-class documentation.
+<AccordionGroup>
+  <Accordion title="Run boolean searches over the full corpus" icon="magnifying-glass">
+    Search case names and judgment text with phrases, AND/OR/NOT operators,
+    field-scoped queries, and fuzzy matching. Filter by court and date range,
+    paginate with offset/limit.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+    ```bash
+    GET /v1/cases/search?q=%22wednesbury+unreasonable%22&court=HKCFA,HKCA
+    ```
+  </Accordion>
+  <Accordion title="Retrieve a judgment by any identifier" icon="file-lines">
+    Look up a case by canonical case ID, neutral citation, or action number.
+    Returns metadata plus the full plain-text judgment.
 
-## Need inspiration?
+    ```bash
+    GET /v1/cases/HKCFA_2023_5
+    GET /v1/cases/%5B2023%5D%20HKCFA%205
+    GET /v1/cases/FACV%205%2F2022
+    ```
+  </Accordion>
+  <Accordion title="Find cases that cite a judgment" icon="diagram-project">
+    Returns later judgments that cite the case, deduplicated and sorted by
+    publication date. Includes both direct case-to-case citations and citations
+    by action number.
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+    ```bash
+    GET /v1/cases/HKCFA_2023_5/cited-by
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Base URL
+
+```
+https://api.casebyte.ai
+```
+
+All endpoints live under `/v1/`. The unauthenticated `/health` endpoint returns
+`{ "status": "ok" }` and is suitable for uptime checks.
+
+## Authentication
+
+Every request to `/v1/*` must carry a Bearer token:
+
+```http
+Authorization: Bearer cb_live_...
+```
+
+API keys are issued from your [casebyte.ai settings](https://casebyte.ai/settings)
+page. See [Quickstart](/quickstart) for the full walkthrough.
+
+## Coverage
+
+| Field | Value |
+|---|---|
+| Jurisdiction | Hong Kong (HKSAR) |
+| Courts | CFA, CA, CFI, DC, LT, FC, MC and tribunals |
+| Approximate corpus size | ~157,000 judgments |
+| Earliest judgment | 1946 |
+| Update cadence | Daily, with new judgments typically available within 24 hours of publication |
+
+UK and other Commonwealth jurisdictions are not exposed in v1.
+
+## Rate limits
+
+10 requests per minute, per API key. Responses include `X-RateLimit-*` headers
+so you can pace yourself; over-limit requests return `429` with a `Retry-After`
+header. Full details in [Rate limits](/guides/rate-limits).
+
+## Need more?
+
+If you're hitting rate limits, need bulk export, or want jurisdictions outside
+Hong Kong, get in touch at [support@casebyte.ai](mailto:support@casebyte.ai).

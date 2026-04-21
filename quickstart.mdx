@@ -1,80 +1,192 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: "Make your first authenticated request in under five minutes."
 ---
 
-## Get started in three steps
+## 1. Generate an API key
 
-Get your documentation site running locally and make your first customization.
+<Steps>
+  <Step title="Sign in to casebyte.ai">
+    Go to [casebyte.ai](https://casebyte.ai) and sign in with your Casebyte
+    account. API access is currently in private beta — if you don't see the
+    **API keys** section, [email us](mailto:support@casebyte.ai) for access.
+  </Step>
+  <Step title="Open settings">
+    Click your avatar (top right) and choose **Settings**. Scroll to the
+    **API keys** section.
+  </Step>
+  <Step title="Create a key">
+    Click **New API key**, give it a descriptive name (e.g. `local-dev` or
+    `production-worker`), and click **Create**.
 
-### Step 1: Set up your local environment
+    <Warning>
+      You'll see the full key value **once**. Copy it now and store it in a
+      secret manager. Casebyte only ever stores a hash of the key, so we cannot
+      show it to you again. If you lose it, revoke it and issue a new one.
+    </Warning>
+  </Step>
+</Steps>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+API keys look like this:
 
-### Step 2: Deploy your changes
+```
+cb_live_8f2a3b4c5d6e7f1a9b8c7d6e5f4a3b2c
+```
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+The `cb_live_` prefix is part of the key — include it in your `Authorization`
+header.
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+## 2. Make your first request
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+Search for the phrase **"wednesbury unreasonable"** across all of HK case law,
+returning at most 5 results:
 
-### Step 3: Go live
+<CodeGroup>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+```bash cURL
+curl -G https://api.casebyte.ai/v1/cases/search \
+  -H "Authorization: Bearer $CASEBYTE_API_KEY" \
+  --data-urlencode 'q="wednesbury unreasonable"' \
+  --data-urlencode 'limit=5'
+```
 
-## Next steps
+```typescript Node.js
+const res = await fetch(
+  "https://api.casebyte.ai/v1/cases/search?" +
+    new URLSearchParams({
+      q: '"wednesbury unreasonable"',
+      limit: "5",
+    }),
+  {
+    headers: {
+      Authorization: `Bearer ${process.env.CASEBYTE_API_KEY}`,
+    },
+  },
+);
+const data = await res.json();
+console.log(data.results);
+```
 
-Now that you have your docs running, explore these key features:
+```python Python
+import os
+import requests
+
+res = requests.get(
+    "https://api.casebyte.ai/v1/cases/search",
+    headers={"Authorization": f"Bearer {os.environ['CASEBYTE_API_KEY']}"},
+    params={"q": '"wednesbury unreasonable"', "limit": 5},
+)
+res.raise_for_status()
+print(res.json()["results"])
+```
+
+```go Go
+req, _ := http.NewRequest("GET", "https://api.casebyte.ai/v1/cases/search", nil)
+req.Header.Set("Authorization", "Bearer "+os.Getenv("CASEBYTE_API_KEY"))
+
+q := req.URL.Query()
+q.Set("q", `"wednesbury unreasonable"`)
+q.Set("limit", "5")
+req.URL.RawQuery = q.Encode()
+
+res, _ := http.DefaultClient.Do(req)
+defer res.Body.Close()
+body, _ := io.ReadAll(res.Body)
+fmt.Println(string(body))
+```
+
+</CodeGroup>
+
+You should get a response like:
+
+```json
+{
+  "total": 47,
+  "limit": 5,
+  "offset": 0,
+  "results": [
+    {
+      "case_id": "HKCFA_2021_12",
+      "case_name": "Kwok Cheuk Kin v Director of Lands",
+      "court": "HKCFA",
+      "neutral_citation": "[2021] HKCFA 12",
+      "action_number": ["FACV 4/2020"],
+      "publish_date": "2021-04-21",
+      "score": 14.82,
+      "highlights": {
+        "doc_text": [
+          "...the test of <em>Wednesbury</em> <em>unreasonable</em>ness applied..."
+        ],
+        "case_name": []
+      }
+    }
+  ]
+}
+```
+
+## 3. Retrieve the full judgment
+
+Take a `case_id` from the search results and fetch the judgment text:
+
+```bash
+curl https://api.casebyte.ai/v1/cases/HKCFA_2021_12 \
+  -H "Authorization: Bearer $CASEBYTE_API_KEY"
+```
+
+The response includes metadata plus the full plain-text judgment:
+
+```json
+{
+  "case_id": "HKCFA_2021_12",
+  "case_name": "Kwok Cheuk Kin v Director of Lands",
+  "court": "HKCFA",
+  "neutral_citation": "[2021] HKCFA 12",
+  "action_numbers": ["FACV 4/2020"],
+  "publish_date": "2021-04-21",
+  "case_url": "https://www.hklii.hk/...",
+  "doc_text": "JUDGMENT...",
+  "matched_by": "case_id"
+}
+```
+
+## 4. See who cites it
+
+Find later judgments that cite this case:
+
+```bash
+curl https://api.casebyte.ai/v1/cases/HKCFA_2021_12/cited-by \
+  -H "Authorization: Bearer $CASEBYTE_API_KEY"
+```
+
+```json
+{
+  "case_id": "HKCFA_2021_12",
+  "total": 8,
+  "citing_cases": [
+    {
+      "case_id": "HKCA_2023_487",
+      "case_name": "...",
+      "neutral_citation": "[2023] HKCA 487",
+      "publish_date": "2023-09-15",
+      "citation_text": "[2021] HKCFA 12"
+    }
+  ]
+}
+```
+
+## What's next
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Search syntax" icon="magnifying-glass" href="/guides/search-syntax">
+    Boolean operators, phrases, fuzzy matching, and field scoping.
+  </Card>
+  <Card title="Identifiers" icon="fingerprint" href="/guides/identifiers">
+    Three ways to look up a case — and which one to use.
+  </Card>
+  <Card title="Errors" icon="triangle-exclamation" href="/guides/errors">
+    Every error code the API can return, and what to do about it.
+  </Card>
+  <Card title="Rate limits" icon="gauge-high" href="/guides/rate-limits">
+    Understand the limits and how to back off cleanly.
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

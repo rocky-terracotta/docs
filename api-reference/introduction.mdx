@@ -1,33 +1,121 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: Overview
+description: "Base URL, authentication, response shape, and conventions."
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+The Casebyte API is a small REST API over JSON. Three resource endpoints, one
+auth scheme, predictable error format. If you've used Stripe, GitHub, or any
+modern HTTP API, nothing here will surprise you.
 
-## Welcome
+## Base URL
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+```
+https://api.casebyte.ai
+```
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+All resource endpoints are prefixed with `/v1/`. The unauthenticated
+`/health` endpoint can be used for monitoring.
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+All `/v1/*` endpoints require an API key in the `Authorization` header:
+
+```http
+Authorization: Bearer cb_live_8f2a3b4c5d6e7f1a9b8c7d6e5f4a3b2c
+```
+
+Keys are issued from the **API keys** section of your
+[casebyte.ai settings](https://casebyte.ai/settings) page. See the
+[Quickstart](/quickstart) for the full walkthrough.
+
+<Warning>
+  API keys grant the bearer the ability to read the entire HK case-law corpus
+  and consume your rate-limit budget. Treat them like passwords:
+
+  - Store them in a secret manager, not in source control
+  - Use a separate key per environment (dev, staging, prod)
+  - Revoke and rotate any key you suspect has leaked
+</Warning>
+
+### Auth errors
+
+| Status | Error code | Cause |
+|---|---|---|
+| `401` | `missing_credentials` | No `Authorization` header, or it doesn't start with `Bearer `. |
+| `401` | `invalid_credentials` | Token doesn't start with `cb_live_`, or no matching key in our database. |
+| `401` | `revoked_credentials` | Key existed but has been revoked. |
+
+## Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/v1/cases/search` | Boolean / phrase / fuzzy search over HK case law. |
+| `GET` | `/v1/cases/{id}` | Retrieve a single case by ID, neutral citation, or action number. |
+| `GET` | `/v1/cases/{id}/cited-by` | List later judgments that cite this case. |
+| `GET` | `/health` | Health check. No auth required. |
+
+## Request format
+
+All endpoints are `GET` requests. Parameters go in the query string or the URL
+path — there is no request body.
+
+Path segments must be URL-encoded. Neutral citations like `[2023] HKCFA 5`
+contain reserved characters and must be encoded:
+
+```
+/v1/cases/%5B2023%5D%20HKCFA%205
+```
+
+Most HTTP clients will do this for you (`requests`, `fetch`, `curl --data-urlencode`).
+
+## Response format
+
+Successful responses return `200 OK` with a JSON body. The shape is documented
+per-endpoint in the API reference.
+
+All responses include the following headers:
+
+| Header | Meaning |
+|---|---|
+| `X-RateLimit-Limit` | Your per-minute quota. |
+| `X-RateLimit-Remaining` | Requests left in the current window. |
+| `X-RateLimit-Reset` | Unix timestamp (seconds) when the window resets. |
+
+## Error format
+
+Errors are returned with an appropriate HTTP status and a consistent JSON body:
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
+{
+  "error": {
+    "code": "case_not_found",
+    "message": "No case matched that identifier.",
+    "details": { "identifier": "HKCFA_9999_0" }
   }
-]
+}
 ```
+
+| Field | Type | Notes |
+|---|---|---|
+| `error.code` | string | Machine-readable error identifier. Stable across versions. Use this in your code. |
+| `error.message` | string | Human-readable summary. May change wording across versions. |
+| `error.details` | object \| array \| null | Optional. Endpoint-specific extra context. |
+
+See [Error reference](/guides/errors) for every code the API can emit and
+what to do about each one.
+
+## Versioning
+
+The API is versioned in the URL path (`/v1/`). Breaking changes will be
+shipped as a new version (`/v2/`) with a published deprecation timeline for
+the old one. Additive changes (new fields, new optional parameters, new
+endpoints) may be made within a version without notice.
+
+## SDKs
+
+There are no official SDKs yet. The API is small enough that any HTTP client
+will do. The [Quickstart](/quickstart) has copy-pasteable examples for cURL,
+Node.js, Python, and Go.
+
+If you build a client library you'd like us to link to, drop us a note at
+[support@casebyte.ai](mailto:support@casebyte.ai).

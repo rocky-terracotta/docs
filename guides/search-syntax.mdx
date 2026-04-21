@@ -1,0 +1,208 @@
+---
+title: Search syntax
+description: "Phrases, boolean operators, field scoping, and fuzzy matching."
+---
+
+The `q` parameter on `GET /v1/cases/search` accepts plain words, exact phrases,
+and full Lucene boolean queries. The API automatically picks the right
+matching strategy based on the shape of your input.
+
+## The three modes
+
+The API inspects your query and routes it to one of three search modes:
+
+| If `q` looks like… | Mode | Behaviour |
+|---|---|---|
+| `tort negligence` | **Match** | Tokenised, ranked by relevance. Default mode. Fuzzy matching enabled for `scope=case_name`. |
+| `"wednesbury unreasonable"` (wrapped in `"..."`) | **Phrase** | Exact phrase match — words must appear adjacent and in order. |
+| `tort AND (negligence OR breach)` (contains `AND`/`OR`/`NOT`) | **Boolean** | Full Lucene `query_string` syntax with grouping, field scoping, wildcards, etc. |
+
+You don't have to pick — just write your query and the API does the right
+thing. The detection is purely string-based: `"..."` triggers phrase mode, the
+literal tokens `AND`, `OR`, or `NOT` trigger boolean mode, otherwise you get
+match mode.
+
+## Plain word search
+
+```
+q=conversion bailment
+```
+
+Tokenised and matched against `case_name` (3× weight) and `doc_text`. Results
+are ranked by relevance score. Word order is not significant; both words don't
+have to appear in the same sentence.
+
+```bash
+curl -G https://api.casebyte.ai/v1/cases/search \
+  -H "Authorization: Bearer $CASEBYTE_API_KEY" \
+  --data-urlencode "q=conversion bailment"
+```
+
+## Exact phrase
+
+Wrap the whole query in double quotes to require the words to appear
+adjacent and in order:
+
+```
+q="strict liability offence"
+```
+
+```bash
+curl -G https://api.casebyte.ai/v1/cases/search \
+  -H "Authorization: Bearer $CASEBYTE_API_KEY" \
+  --data-urlencode 'q="strict liability offence"'
+```
+
+Phrase mode is the right choice for legal terms of art, statutory phrases,
+case names, or anything else where word order matters.
+
+## Boolean operators
+
+Use `AND`, `OR`, and `NOT` (uppercase, with whitespace around them) to
+combine terms. Parentheses group sub-expressions:
+
+```
+q=trespass AND (negligence OR conversion) NOT contract
+```
+
+The presence of any boolean operator switches the API into Lucene
+`query_string` mode, which unlocks the full grammar:
+
+| Feature | Example | Notes |
+|---|---|---|
+| AND | `tort AND breach` | Both terms must appear. |
+| OR | `tort OR delict` | Either term must appear. |
+| NOT | `tort NOT contract` | First term yes, second term no. |
+| Grouping | `(a OR b) AND c` | Standard precedence; parens override. |
+| Phrases | `"strict liability" AND mens NOT rea` | Phrases inside boolean queries. |
+| Wildcards | `negligen*` | Matches `negligent`, `negligence`, etc. |
+| Required / forbidden | `+breach -contract` | `+` term required, `-` term forbidden (alternative to AND/NOT). |
+
+<Note>
+  The `AND`/`OR`/`NOT` operators are case-sensitive — `and` is treated as the
+  word "and", not the boolean operator. Always uppercase them.
+</Note>
+
+### Worked example
+
+> Find judgments mentioning `wednesbury` unreasonableness in a public-law
+> context, but not pure tax cases:
+
+```bash
+curl -G https://api.casebyte.ai/v1/cases/search \
+  -H "Authorization: Bearer $CASEBYTE_API_KEY" \
+  --data-urlencode 'q=wednesbury AND ("judicial review" OR "public law") NOT tax'
+```
+
+## Field scoping with `scope`
+
+By default, the search runs across both `case_name` and `doc_text`. To narrow
+the search to one field, pass `scope`:
+
+| `scope` value | Searches | Notes |
+|---|---|---|
+| `all` (default) | Case name (boost 3×) + judgment text | General-purpose search. |
+| `case_name` | Case name only | Fuzzy match (typo-tolerant) for plain queries. |
+| `judgment` | Judgment body text only | Excludes case name from matching. |
+
+Field scoping is independent of mode — phrase and boolean queries both honour
+`scope`. Inside the **boolean** mode you can also do per-clause field scoping
+using Lucene syntax:
+
+```
+q=case_name:"Donoghue v Stevenson" OR doc_text:snail
+```
+
+## Fuzzy matching
+
+Plain (match-mode) queries against `scope=case_name` automatically enable
+`fuzziness: AUTO` — typos within Levenshtein edit distance 1–2 still match.
+This is useful for case names (people misspell party names constantly) but is
+deliberately **not** enabled for `doc_text` searches, where it would drown
+specific legal terms in near-misses.
+
+```bash
+curl -G https://api.casebyte.ai/v1/cases/search \
+  -H "Authorization: Bearer $CASEBYTE_API_KEY" \
+  --data-urlencode "q=Donogue Stevenson" \
+  --data-urlencode "scope=case_name"
+# matches "Donoghue v Stevenson" despite the typo
+```
+
+For controlled fuzzy matching in boolean mode, use the Lucene `~` syntax:
+
+```
+q=donoghue~1 AND stevenson
+```
+
+## Filters: court and date range
+
+Filters are applied **after** the text query. They narrow the candidate set
+without affecting relevance scoring.
+
+### `court` — comma-separated list of court codes
+
+```
+?q=negligence&court=HKCFA,HKCA
+```
+
+Multiple courts are OR'd together. See the [Identifiers guide](/guides/identifiers#court-codes)
+for the full list of court codes.
+
+### `start` / `end` — ISO dates
+
+Both are optional and inclusive. Dates can be a year (`2023`), a year+month
+(`2023-04`), or a full date (`2023-04-21`).
+
+```
+?q=negligence&start=2020-01-01&end=2023-12-31
+```
+
+## Sorting and pagination
+
+| Param | Default | Range | Notes |
+|---|---|---|---|
+| `order` | `desc` | `asc` \| `desc` | Sort by `publish_date`. Score-based ranking is preserved within the same date bucket. |
+| `limit` | `20` | `1..100` | Page size. |
+| `offset` | `0` | `0..10000` | Skip-N pagination. |
+
+The API caps `offset + limit` at 10,000. If you need to walk further into the
+corpus than that, narrow your search with court / date filters, or contact us
+for a bulk export.
+
+## Response: highlights
+
+Search results include per-hit highlights showing which snippets matched:
+
+```json
+{
+  "results": [
+    {
+      "case_id": "HKCFA_2021_12",
+      "case_name": "Kwok Cheuk Kin v Director of Lands",
+      "highlights": {
+        "doc_text": [
+          "...the test of <em>Wednesbury</em> <em>unreasonable</em>ness applied..."
+        ],
+        "case_name": []
+      }
+    }
+  ]
+}
+```
+
+Matched terms are wrapped in `<em>...</em>` tags. Snippet fragments are up to
+300 characters each, with a maximum of 3 fragments per result for `doc_text`
+and 1 for `case_name`.
+
+## Tips
+
+- **Start narrow.** Use `scope=case_name` first if you know the parties — it's
+  the cheapest query and fuzzy by default.
+- **Phrases beat AND.** `"strict liability"` is more precise than
+  `strict AND liability`, which would match documents mentioning both words
+  anywhere.
+- **Don't paginate beyond `offset=10000`.** The API will reject it. Use
+  filters to narrow, not pages to walk.
+- **Rate limit applies per request, not per page.** A search returning 100
+  results costs the same as one returning 1. Prefer larger pages.

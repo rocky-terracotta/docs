@@ -1,0 +1,160 @@
+---
+title: Identifiers
+description: "Three ways to identify a Hong Kong case — and which one to use."
+---
+
+The `GET /v1/cases/{id}` and `GET /v1/cases/{id}/cited-by` endpoints accept
+**three different identifier formats**. The API tries each in order, and
+returns the matched form in the response so you know which one was used.
+
+## The three forms
+
+<CardGroup cols={3}>
+  <Card title="Case ID" icon="fingerprint">
+    `HKCFA_2023_5`
+
+    Casebyte's canonical, opaque ID. Stable across re-imports. **Preferred.**
+  </Card>
+  <Card title="Neutral citation" icon="quote-left">
+    `[2023] HKCFA 5`
+
+    Official Hong Kong neutral citation. Stable, but contains reserved chars.
+  </Card>
+  <Card title="Action number" icon="hashtag">
+    `FACV 5/2022`
+
+    Court-assigned docket number. Useful when that's all you have.
+  </Card>
+</CardGroup>
+
+## Case ID (preferred)
+
+Format: `COURT_YEAR_NUM`, e.g. `HKCFA_2023_5`, `HKCA_2024_127`, `HKCFI_2022_1843`.
+
+This is the canonical identifier returned in every search result and in the
+`case_id` field of every response. Use it whenever you can — it's URL-safe,
+unambiguous, and the lookup is the cheapest of the three (a single indexed
+primary-key match in Postgres).
+
+```bash
+curl https://api.casebyte.ai/v1/cases/HKCFA_2023_5 \
+  -H "Authorization: Bearer $CASEBYTE_API_KEY"
+```
+
+The response includes `"matched_by": "case_id"`.
+
+<Note>
+  The canonical form is `COURT_YEAR_NUM` — three segments, no more. Search
+  results always return the canonical form, so the safest pattern is to copy
+  `case_id` from a search response and use it verbatim for retrieval.
+</Note>
+
+### Court codes
+
+The court prefix in a case ID matches the official HK court code:
+
+| Code | Court |
+|---|---|
+| `HKCFA` | Court of Final Appeal |
+| `HKCA` | Court of Appeal |
+| `HKCFI` | Court of First Instance |
+| `HKDC` | District Court |
+| `HKLT` | Lands Tribunal |
+| `HKFC` | Family Court |
+| `HKMC` | Magistrates' Courts |
+
+Use these same codes when filtering search results with `?court=`.
+
+## Neutral citation
+
+Format: `[YEAR] COURT NUMBER`, e.g. `[2023] HKCFA 5`.
+
+This is the official Hong Kong neutral citation. It contains square brackets
+and a space, which **must be URL-encoded** before being placed in a path
+segment:
+
+| Raw | URL-encoded |
+|---|---|
+| `[2023] HKCFA 5` | `%5B2023%5D%20HKCFA%205` |
+| `[2024] HKCA 127` | `%5B2024%5D%20HKCA%20127` |
+
+```bash
+curl https://api.casebyte.ai/v1/cases/%5B2023%5D%20HKCFA%205 \
+  -H "Authorization: Bearer $CASEBYTE_API_KEY"
+```
+
+Most HTTP clients will encode this for you:
+
+<CodeGroup>
+
+```bash cURL
+curl --data-urlencode "id=[2023] HKCFA 5" --get \
+  "https://api.casebyte.ai/v1/cases/" \
+  -H "Authorization: Bearer $CASEBYTE_API_KEY"
+# (better: just call the endpoint with an encoded path)
+```
+
+```typescript Node.js
+const id = encodeURIComponent("[2023] HKCFA 5");
+const res = await fetch(`https://api.casebyte.ai/v1/cases/${id}`, {
+  headers: { Authorization: `Bearer ${process.env.CASEBYTE_API_KEY}` },
+});
+```
+
+```python Python
+import urllib.parse, requests
+id_ = urllib.parse.quote("[2023] HKCFA 5", safe="")
+requests.get(
+    f"https://api.casebyte.ai/v1/cases/{id_}",
+    headers={"Authorization": f"Bearer {os.environ['CASEBYTE_API_KEY']}"},
+)
+```
+
+</CodeGroup>
+
+The response includes `"matched_by": "neutral_citation"`.
+
+## Action number
+
+Format varies by court, e.g. `FACV 5/2022`, `CACV 145/2023`, `HCMP 1234/2024`.
+
+Action numbers are the docket number assigned by the court when the case is
+filed. They contain a forward slash, which must be URL-encoded as `%2F`:
+
+```bash
+curl https://api.casebyte.ai/v1/cases/FACV%205%2F2022 \
+  -H "Authorization: Bearer $CASEBYTE_API_KEY"
+```
+
+A single case can have **multiple action numbers** (e.g. consolidated appeals).
+The retrieval endpoint will match if **any** of them matches; the response's
+`action_numbers` field is an array containing all of them.
+
+The response includes `"matched_by": "action_number"`.
+
+<Warning>
+  Action numbers are not guaranteed unique across all of HK case law in the
+  way case IDs and neutral citations are. If multiple cases share an action
+  number, the API returns the most recent. Prefer case ID or neutral citation
+  when you have one.
+</Warning>
+
+## Resolution order
+
+When you call `GET /v1/cases/{id}`, the API tries the three forms in this
+order and returns the first match:
+
+1. **Case ID** — if the input matches `^[A-Z]+_\d{4}_\d+$` (regex)
+2. **Neutral citation** — if the input matches `^\[\d{4}\]\s+[A-Z]+\s+\d+`
+3. **Action number** — fallback for everything else
+
+If none of them match, you get a `404` with `error.code = "case_not_found"`.
+
+## Choosing wisely
+
+- **Storing references in your own database?** Use the case ID. It's compact,
+  URL-safe, and stable.
+- **Importing data from another system that uses neutral citations?** Pass the
+  citations directly — the API will resolve them.
+- **All you have is a docket number from court paperwork?** Action number
+  works, but call once and store the case ID for future lookups.
