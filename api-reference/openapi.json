@@ -19,7 +19,11 @@
       "description": "Production"
     }
   ],
-  "security": [{ "bearerAuth": [] }],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
   "tags": [
     {
       "name": "Cases",
@@ -33,7 +37,9 @@
   "paths": {
     "/health": {
       "get": {
-        "tags": ["Health"],
+        "tags": [
+          "Health"
+        ],
         "summary": "Health check",
         "description": "Returns `{ status: \"ok\" }` if the service is alive. No authentication required. Suitable for uptime monitors.",
         "security": [],
@@ -42,7 +48,9 @@
             "description": "Service is healthy.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Health" }
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
               }
             }
           }
@@ -51,7 +59,9 @@
     },
     "/v1/cases/search": {
       "get": {
-        "tags": ["Cases"],
+        "tags": [
+          "Cases"
+        ],
         "summary": "Search Cases",
         "description": "Boolean / phrase / fuzzy search across the Hong Kong case-law corpus. The `q` parameter accepts plain words, exact phrases (wrap in `\"...\"`), or boolean queries (use `AND` / `OR` / `NOT`). See the [search syntax guide](https://docs.casebyte.ai/guides/search-syntax) for details.",
         "parameters": [
@@ -60,9 +70,15 @@
             "in": "query",
             "required": true,
             "description": "Search query. Supports plain words, `\"phrases\"`, and `AND`/`OR`/`NOT` booleans.",
-            "schema": { "type": "string", "minLength": 1 },
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
             "examples": {
-              "plain": { "value": "negligence", "summary": "Plain word match" },
+              "plain": {
+                "value": "negligence",
+                "summary": "Plain word match"
+              },
               "phrase": {
                 "value": "\"strict liability\"",
                 "summary": "Exact phrase"
@@ -79,7 +95,11 @@
             "description": "Which fields to search.",
             "schema": {
               "type": "string",
-              "enum": ["all", "case_name", "judgment"],
+              "enum": [
+                "all",
+                "case_name",
+                "judgment"
+              ],
               "default": "all"
             }
           },
@@ -97,14 +117,20 @@
             "name": "start",
             "in": "query",
             "description": "Inclusive lower bound for `publish_date`. Must be `YYYY-MM-DD`.",
-            "schema": { "type": "string", "format": "date" },
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
             "example": "2020-01-01"
           },
           {
             "name": "end",
             "in": "query",
             "description": "Inclusive upper bound for `publish_date`. Must be `YYYY-MM-DD`. Must be on or after `start`.",
-            "schema": { "type": "string", "format": "date" },
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
             "example": "2023-12-31"
           },
           {
@@ -113,7 +139,10 @@
             "description": "Sort order for `publish_date`.",
             "schema": {
               "type": "string",
-              "enum": ["asc", "desc"],
+              "enum": [
+                "asc",
+                "desc"
+              ],
               "default": "desc"
             }
           },
@@ -144,12 +173,18 @@
           "200": {
             "description": "Search results.",
             "headers": {
-              "X-RateLimit-Limit": { "$ref": "#/components/headers/RateLimitLimit" },
-              "X-RateLimit-Remaining": { "$ref": "#/components/headers/RateLimitRemaining" }
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/SearchResponse" },
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                },
                 "example": {
                   "total": 47,
                   "limit": 5,
@@ -160,7 +195,9 @@
                       "case_name": "Kwok Cheuk Kin v Director of Lands",
                       "court": "HKCFA",
                       "neutral_citation": "[2021] HKCFA 12",
-                      "action_number": ["FACV 4/2020"],
+                      "action_number": [
+                        "FACV 4/2020"
+                      ],
                       "publish_date": "2021-04-21",
                       "score": 14.82,
                       "highlights": {
@@ -175,16 +212,112 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "429": { "$ref": "#/components/responses/RateLimited" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/v1/cases/resolve-judgment": {
+      "post": {
+        "tags": [
+          "Cases"
+        ],
+        "summary": "Resolve Judgment",
+        "description": "Resolve a Judiciary cause-list action number plus hearing date to a same-day Casebyte judgment. The action number is normalised by uppercasing and removing whitespace, then matched against `action_number`; the date must match either `judgment_date` or the UTC calendar day of `publish_date`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JudgmentResolverRequest"
+              },
+              "example": {
+                "actionNumber": "CACV235/2025",
+                "date": "2026-06-11"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resolver result. `matched` is false when no exact same-day action-number match exists.",
+            "headers": {
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JudgmentResolverResponse"
+                },
+                "examples": {
+                  "matched": {
+                    "summary": "Matched judgment",
+                    "value": {
+                      "matched": true,
+                      "url": "https://casebyte.ai/case/hkca/2026/1066",
+                      "judgment": {
+                        "caseId": "HKCA_2026_1066",
+                        "caseName": "RE EUROPA BOBBY JILONGOS",
+                        "court": "HKCA",
+                        "neutralCitation": "[2026] HKCA 1066",
+                        "actionNumbers": [
+                          "CACV235/2025"
+                        ],
+                        "judgmentDate": "2026-06-11",
+                        "publishDate": "2026-06-11T06:28:40+00:00",
+                        "casebyteUrl": "https://casebyte.ai/case/hkca/2026/1066"
+                      }
+                    }
+                  },
+                  "unmatched": {
+                    "summary": "No same-day match",
+                    "value": {
+                      "matched": false,
+                      "actionNumber": "CACV325/2026",
+                      "date": "2026-06-11",
+                      "url": null,
+                      "judgment": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     },
     "/v1/cases/{id}": {
       "get": {
-        "tags": ["Cases"],
+        "tags": [
+          "Cases"
+        ],
         "summary": "Get Case Judgment",
         "description": "Look up a case by canonical `case_id` (e.g. `HKCFA_2023_5`), neutral citation (e.g. `[2023] HKCFA 5`), or action number (e.g. `FACV 5/2022` or `FACV5/2022` — the space is optional). The API tries each format in order and returns the first match. The `matched_by` field in the response tells you which form was used. See the [identifiers guide](https://docs.casebyte.ai/guides/identifiers) for details on each format and URL-encoding.",
         "parameters": [
@@ -193,7 +326,9 @@
             "in": "path",
             "required": true,
             "description": "Case identifier — case ID, neutral citation, or action number. URL-encode reserved characters (`[`, `]`, `/`, space).",
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "examples": {
               "caseId": {
                 "value": "HKCFA_2023_5",
@@ -214,18 +349,26 @@
           "200": {
             "description": "Case found.",
             "headers": {
-              "X-RateLimit-Limit": { "$ref": "#/components/headers/RateLimitLimit" },
-              "X-RateLimit-Remaining": { "$ref": "#/components/headers/RateLimitRemaining" }
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Case" },
+                "schema": {
+                  "$ref": "#/components/schemas/Case"
+                },
                 "example": {
                   "case_id": "HKCFA_2021_12",
                   "case_name": "Kwok Cheuk Kin v Director of Lands",
                   "court": "HKCFA",
                   "neutral_citation": "[2021] HKCFA 12",
-                  "action_numbers": ["FACV 4/2020"],
+                  "action_numbers": [
+                    "FACV 4/2020"
+                  ],
                   "publish_date": "2021-04-21",
                   "case_url": "https://www.hklii.hk/eng/hk/cases/hkcfa/2021/12.html",
                   "doc_text": "JUDGMENT\n\n1. This appeal raises...",
@@ -234,16 +377,26 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/CaseNotFound" },
-          "429": { "$ref": "#/components/responses/RateLimited" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/CaseNotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     },
     "/v1/cases/{id}/cited-by": {
       "get": {
-        "tags": ["Cases"],
+        "tags": [
+          "Cases"
+        ],
         "summary": "Get Citing Cases",
         "description": "Returns later judgments that cite the given case. Combines direct case-to-case citations with action-number citations (where the citing case mentioned an action number that wasn't resolved to a case ID by the citation parser). Results are deduplicated by `case_id` and sorted by `publish_date` descending. Pagination is not supported — the full list is returned in a single response.",
         "parameters": [
@@ -252,7 +405,9 @@
             "in": "path",
             "required": true,
             "description": "Case identifier — case ID, neutral citation, or action number. Same format as `GET /v1/cases/{id}`.",
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "example": "HKCFA_2021_12"
           }
         ],
@@ -260,12 +415,18 @@
           "200": {
             "description": "List of citing cases.",
             "headers": {
-              "X-RateLimit-Limit": { "$ref": "#/components/headers/RateLimitLimit" },
-              "X-RateLimit-Remaining": { "$ref": "#/components/headers/RateLimitRemaining" }
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CitedByResponse" },
+                "schema": {
+                  "$ref": "#/components/schemas/CitedByResponse"
+                },
                 "example": {
                   "case_id": "HKCFA_2021_12",
                   "total": 2,
@@ -289,10 +450,18 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/CaseNotFound" },
-          "429": { "$ref": "#/components/responses/RateLimited" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/CaseNotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     }
@@ -309,43 +478,74 @@
     "headers": {
       "RateLimitLimit": {
         "description": "Per-window quota for this API key.",
-        "schema": { "type": "integer" },
+        "schema": {
+          "type": "integer"
+        },
         "example": 10
       },
       "RateLimitRemaining": {
         "description": "Requests remaining in the current window.",
-        "schema": { "type": "integer" },
+        "schema": {
+          "type": "integer"
+        },
         "example": 9
       }
     },
     "schemas": {
       "Health": {
         "type": "object",
-        "required": ["status", "timestamp"],
+        "required": [
+          "status",
+          "timestamp"
+        ],
         "properties": {
-          "status": { "type": "string", "enum": ["ok"] },
-          "timestamp": { "type": "string", "format": "date-time" }
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "SearchResponse": {
         "type": "object",
-        "required": ["total", "limit", "offset", "results"],
+        "required": [
+          "total",
+          "limit",
+          "offset",
+          "results"
+        ],
         "properties": {
           "total": {
             "type": "integer",
             "description": "Total number of cases matching the query (the corpus-wide count, not the page size)."
           },
-          "limit": { "type": "integer", "description": "Echo of the `limit` parameter actually applied." },
-          "offset": { "type": "integer", "description": "Echo of the `offset` parameter actually applied." },
+          "limit": {
+            "type": "integer",
+            "description": "Echo of the `limit` parameter actually applied."
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Echo of the `offset` parameter actually applied."
+          },
           "results": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/SearchHit" }
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            }
           }
         }
       },
       "SearchHit": {
         "type": "object",
-        "required": ["case_id", "highlights"],
+        "required": [
+          "case_id",
+          "highlights"
+        ],
         "properties": {
           "case_id": {
             "type": "string",
@@ -353,34 +553,60 @@
             "example": "HKCFA_2021_12"
           },
           "case_name": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "example": "Kwok Cheuk Kin v Director of Lands"
           },
           "court": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Court code, e.g. `HKCFA`, `HKCA`, `HKCFI`.",
             "example": "HKCFA"
           },
           "neutral_citation": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "example": "[2021] HKCFA 12"
           },
           "action_number": {
             "description": "Court-assigned action number(s). May be a single string or an array depending on the underlying record.",
             "oneOf": [
-              { "type": "string" },
-              { "type": "array", "items": { "type": "string" } },
-              { "type": "null" }
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "null"
+              }
             ],
-            "example": ["FACV 4/2020"]
+            "example": [
+              "FACV 4/2020"
+            ]
           },
           "publish_date": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date",
             "example": "2021-04-21"
           },
           "score": {
-            "type": ["number", "null"],
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Relevance score. Higher is more relevant. Only meaningful when comparing hits within a single search response — scores are not comparable across requests.",
             "example": 14.82
           },
@@ -390,12 +616,16 @@
             "properties": {
               "doc_text": {
                 "type": "array",
-                "items": { "type": "string" },
+                "items": {
+                  "type": "string"
+                },
                 "description": "Up to 3 fragments of ~300 chars each from the judgment body."
               },
               "case_name": {
                 "type": "array",
-                "items": { "type": "string" },
+                "items": {
+                  "type": "string"
+                },
                 "description": "Up to 1 fragment from the case name."
               }
             }
@@ -404,57 +634,126 @@
       },
       "Case": {
         "type": "object",
-        "required": ["case_id", "matched_by"],
+        "required": [
+          "case_id",
+          "matched_by"
+        ],
         "properties": {
-          "case_id": { "type": "string", "example": "HKCFA_2021_12" },
-          "case_name": { "type": ["string", "null"] },
-          "court": { "type": ["string", "null"] },
-          "neutral_citation": { "type": ["string", "null"] },
+          "case_id": {
+            "type": "string",
+            "example": "HKCFA_2021_12"
+          },
+          "case_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "court": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "neutral_citation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "action_numbers": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "All action numbers associated with this case (e.g. consolidated appeals)."
           },
-          "publish_date": { "type": ["string", "null"], "format": "date" },
+          "publish_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
           "case_url": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uri",
             "description": "URL of the original judgment on the source publisher (judiciary.hk or HKLII)."
           },
           "doc_text": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Full plain-text judgment. May be very large (up to several MB)."
           },
           "matched_by": {
             "type": "string",
-            "enum": ["case_id", "neutral_citation", "action_number"],
+            "enum": [
+              "case_id",
+              "neutral_citation",
+              "action_number"
+            ],
             "description": "Which identifier form matched the supplied `id`."
           }
         }
       },
       "CitedByResponse": {
         "type": "object",
-        "required": ["case_id", "total", "citing_cases"],
+        "required": [
+          "case_id",
+          "total",
+          "citing_cases"
+        ],
         "properties": {
           "case_id": {
             "type": "string",
             "description": "The cited (target) case — canonical ID, regardless of how you supplied it."
           },
-          "total": { "type": "integer", "description": "Number of unique citing cases." },
+          "total": {
+            "type": "integer",
+            "description": "Number of unique citing cases."
+          },
           "citing_cases": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/CitingCase" }
+            "items": {
+              "$ref": "#/components/schemas/CitingCase"
+            }
           }
         }
       },
       "CitingCase": {
         "type": "object",
-        "required": ["case_id"],
+        "required": [
+          "case_id"
+        ],
         "properties": {
-          "case_id": { "type": "string", "example": "HKCA_2023_487" },
-          "case_name": { "type": ["string", "null"] },
-          "neutral_citation": { "type": ["string", "null"] },
-          "publish_date": { "type": ["string", "null"], "format": "date" },
+          "case_id": {
+            "type": "string",
+            "example": "HKCA_2023_487"
+          },
+          "case_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "neutral_citation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publish_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
           "citation_text": {
             "type": "string",
             "description": "The exact citation string used by the citing case."
@@ -463,11 +762,16 @@
       },
       "Error": {
         "type": "object",
-        "required": ["error"],
+        "required": [
+          "error"
+        ],
         "properties": {
           "error": {
             "type": "object",
-            "required": ["code", "message"],
+            "required": [
+              "code",
+              "message"
+            ],
             "properties": {
               "code": {
                 "type": "string",
@@ -484,14 +788,145 @@
             }
           }
         }
+      },
+      "JudgmentResolverRequest": {
+        "type": "object",
+        "required": [
+          "actionNumber",
+          "date"
+        ],
+        "properties": {
+          "actionNumber": {
+            "type": "string",
+            "description": "Court-assigned action number from the cause list. Whitespace is ignored and letters are uppercased before matching.",
+            "example": "CACV235/2025"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Cause-list / judgment date in YYYY-MM-DD format.",
+            "example": "2026-06-11"
+          }
+        }
+      },
+      "JudgmentSummary": {
+        "type": "object",
+        "required": [
+          "caseId",
+          "actionNumbers"
+        ],
+        "properties": {
+          "caseId": {
+            "type": "string",
+            "example": "HKCA_2026_1066"
+          },
+          "caseName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "RE EUROPA BOBBY JILONGOS"
+          },
+          "court": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "HKCA"
+          },
+          "neutralCitation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "[2026] HKCA 1066"
+          },
+          "actionNumbers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "CACV235/2025"
+            ]
+          },
+          "judgmentDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "example": "2026-06-11"
+          },
+          "publishDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "2026-06-11T06:28:40+00:00"
+          },
+          "casebyteUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "example": "https://casebyte.ai/case/hkca/2026/1066"
+          }
+        }
+      },
+      "JudgmentResolverResponse": {
+        "type": "object",
+        "required": [
+          "matched",
+          "url",
+          "judgment"
+        ],
+        "properties": {
+          "matched": {
+            "type": "boolean",
+            "description": "True when an exact action-number and same-day judgment match was found."
+          },
+          "actionNumber": {
+            "type": "string",
+            "description": "Normalised action number. Present on unmatched responses.",
+            "example": "CACV325/2026"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Echo of the requested date. Present on unmatched responses.",
+            "example": "2026-06-11"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "description": "Canonical Casebyte public URL for the matched judgment."
+          },
+          "judgment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JudgmentSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
       }
     },
     "responses": {
       "BadRequest": {
-        "description": "The request was malformed or missing required parameters. The `error.code` distinguishes the specific cause; common values include `missing_query`, `query_too_long`, `invalid_scope`, `invalid_order`, `invalid_int`, `invalid_range`, `invalid_court`, `invalid_date`, `invalid_date_range`, `pagination_too_deep`, `missing_identifier`, and `invalid_identifier`.",
+        "description": "The request was malformed or missing required parameters. The `error.code` distinguishes the specific cause; common values include `invalid_json`, `missing_action_number`, `missing_date`, `invalid_date`, `missing_query`, `query_too_long`, `invalid_scope`, `invalid_order`, `invalid_int`, `invalid_range`, `invalid_court`, `invalid_date_range`, `pagination_too_deep`, `missing_identifier`, and `invalid_identifier`.",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/Error" },
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
             "examples": {
               "missingQuery": {
                 "summary": "Missing `q` parameter",
@@ -508,7 +943,15 @@
                   "error": {
                     "code": "invalid_scope",
                     "message": "`scope` must be one of: all, case_name, judgment.",
-                    "details": { "field": "scope", "value": "case", "allowed": ["all", "case_name", "judgment"] }
+                    "details": {
+                      "field": "scope",
+                      "value": "case",
+                      "allowed": [
+                        "all",
+                        "case_name",
+                        "judgment"
+                      ]
+                    }
                   }
                 }
               },
@@ -519,8 +962,23 @@
                     "code": "invalid_court",
                     "message": "Unknown court code: HKMC. Valid codes: HKCFA, HKCA, HKCFI, HKDC, HKMAGC, HKFC, HKLDT, HKLAT, HKSCT, HKOAT, HKCT, HKCRC.",
                     "details": {
-                      "invalid": ["HKMC"],
-                      "valid": ["HKCFA", "HKCA", "HKCFI", "HKDC", "HKMAGC", "HKFC", "HKLDT", "HKLAT", "HKSCT", "HKOAT", "HKCT", "HKCRC"]
+                      "invalid": [
+                        "HKMC"
+                      ],
+                      "valid": [
+                        "HKCFA",
+                        "HKCA",
+                        "HKCFI",
+                        "HKDC",
+                        "HKMAGC",
+                        "HKFC",
+                        "HKLDT",
+                        "HKLAT",
+                        "HKSCT",
+                        "HKOAT",
+                        "HKCT",
+                        "HKCRC"
+                      ]
                     }
                   }
                 }
@@ -531,7 +989,10 @@
                   "error": {
                     "code": "invalid_date",
                     "message": "`start` must be an ISO date in YYYY-MM-DD format.",
-                    "details": { "field": "start", "value": "2023" }
+                    "details": {
+                      "field": "start",
+                      "value": "2023"
+                    }
                   }
                 }
               },
@@ -541,7 +1002,12 @@
                   "error": {
                     "code": "invalid_range",
                     "message": "`limit` must be between 1 and 100.",
-                    "details": { "field": "limit", "value": 500, "min": 1, "max": 100 }
+                    "details": {
+                      "field": "limit",
+                      "value": 500,
+                      "min": 1,
+                      "max": 100
+                    }
                   }
                 }
               },
@@ -551,7 +1017,11 @@
                   "error": {
                     "code": "pagination_too_deep",
                     "message": "`offset` + `limit` must be at most 10000. Use court / date filters to narrow the result set instead of paginating deeper.",
-                    "details": { "offset": 9999, "limit": 100, "max": 10000 }
+                    "details": {
+                      "offset": 9999,
+                      "limit": 100,
+                      "max": 10000
+                    }
                   }
                 }
               }
@@ -563,7 +1033,9 @@
         "description": "Missing, malformed, or revoked credentials.",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/Error" },
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
             "examples": {
               "missing": {
                 "summary": "No Authorization header",
@@ -600,12 +1072,16 @@
         "description": "No case matched the supplied identifier.",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/Error" },
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
             "example": {
               "error": {
                 "code": "case_not_found",
                 "message": "No case matched that identifier.",
-                "details": { "identifier": "HKCFA_9999_0" }
+                "details": {
+                  "identifier": "HKCFA_9999_0"
+                }
               }
             }
           }
@@ -614,12 +1090,18 @@
       "RateLimited": {
         "description": "You exceeded your per-minute quota. Back off with exponential delay and jitter — `Retry-After` is intentionally not returned.",
         "headers": {
-          "X-RateLimit-Limit": { "$ref": "#/components/headers/RateLimitLimit" },
-          "X-RateLimit-Remaining": { "$ref": "#/components/headers/RateLimitRemaining" }
+          "X-RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimitLimit"
+          },
+          "X-RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimitRemaining"
+          }
         },
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/Error" },
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
             "example": {
               "error": {
                 "code": "rate_limited",
@@ -633,7 +1115,9 @@
         "description": "Something went wrong on our side. Retry with exponential backoff.",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/Error" },
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
             "example": {
               "error": {
                 "code": "internal_error",
