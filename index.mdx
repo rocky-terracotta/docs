@@ -8,7 +8,7 @@ corpus that powers [casebyte.ai](https://casebyte.ai) — roughly 157,000
 judgments from the HKSAR courts, with full text, neutral citations, and
 case-to-case citation links.
 
-It's a small, opinionated REST API. Four endpoints, one auth scheme, JSON in
+It's a small, opinionated REST API. Three endpoints, one auth scheme, JSON in
 and out.
 
 <CardGroup cols={2}>
@@ -46,14 +46,6 @@ and out.
     GET /v1/cases/HKCFA_2023_5
     GET /v1/cases/%5B2023%5D%20HKCFA%205
     GET /v1/cases/FACV%205%2F2022
-    ```
-  </Accordion>
-  <Accordion title="Resolve cause-list entries to judgments" icon="link">
-    Match a court action number and date to the same-day Casebyte judgment,
-    useful for cause-list products and daily hearing workflows.
-
-    ```bash
-    POST /v1/cases/resolve-judgment
     ```
   </Accordion>
   <Accordion title="Find cases that cite a judgment" icon="diagram-project">

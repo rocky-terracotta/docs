@@ -46,7 +46,6 @@
             "openapi": "api-reference/openapi.json",
             "pages": [
               "GET /v1/cases/search",
-              "POST /v1/cases/resolve-judgment",
               "GET /v1/cases/{id}",
               "GET /v1/cases/{id}/cited-by"
             ]
@@ -79,7 +78,15 @@
     }
   },
   "contextual": {
-    "options": ["copy", "view", "chatgpt", "claude", "perplexity", "cursor", "vscode"]
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {

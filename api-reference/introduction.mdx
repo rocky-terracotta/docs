@@ -3,7 +3,7 @@ title: Overview
 description: "Base URL, authentication, response shape, and conventions."
 ---
 
-The Casebyte API is a small REST API over JSON. Four resource endpoints, one
+The Casebyte API is a small REST API over JSON. Three resource endpoints, one
 auth scheme, predictable error format. If you've used Stripe, GitHub, or any
 modern HTTP API, nothing here will surprise you.
 
@@ -50,15 +50,14 @@ Keys are issued from the **API keys** section of your
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/v1/cases/search` | Boolean / phrase / fuzzy search over HK case law. |
-| `POST` | `/v1/cases/resolve-judgment` | Resolve a cause-list action number and date to a same-day judgment. |
 | `GET` | `/v1/cases/{id}` | Retrieve a single case by ID, neutral citation, or action number. |
 | `GET` | `/v1/cases/{id}/cited-by` | List later judgments that cite this case. |
 | `GET` | `/health` | Health check. No auth required. |
 
 ## Request format
 
-Most endpoints are `GET` requests with parameters in the query string or URL
-path. `POST /v1/cases/resolve-judgment` accepts a JSON body.
+All endpoints are `GET` requests. Parameters go in the query string or the URL
+path — there is no request body.
 
 Path segments must be URL-encoded. Neutral citations like `[2023] HKCFA 5`
 contain reserved characters and must be encoded:

@@ -29,9 +29,6 @@ Always switch on `error.code`, never on `error.message`.
 
 | Code | Meaning | Fix |
 |---|---|---|
-| `invalid_json` | The request body was not valid JSON. | Send a valid JSON body with `Content-Type: application/json`. |
-| `missing_action_number` | `actionNumber` was missing or empty on `/v1/cases/resolve-judgment`. | Include the cause-list action number, e.g. `CACV235/2025`. |
-| `missing_date` | `date` was missing or empty on `/v1/cases/resolve-judgment`. | Include a `YYYY-MM-DD` date. |
 | `missing_query` | The `q` parameter is missing or empty on `/v1/cases/search`. | Include a non-empty `q`. |
 | `query_too_long` | `q` exceeded the 2000-character cap. | Trim the query. |
 | `invalid_scope` | `scope` was not one of `all`, `case_name`, `judgment`. | Use one of the three valid values. |
@@ -39,7 +36,7 @@ Always switch on `error.code`, never on `error.message`.
 | `invalid_int` | `limit` or `offset` was not an integer. | Send a base-10 integer string. |
 | `invalid_range` | `limit` or `offset` was outside its allowed range. `details` echoes `min`/`max`. | Clamp to the documented range. |
 | `invalid_court` | `court` contained an unknown HK court code. `details.valid` lists the accepted set. | Use one of the codes from [Identifiers](/guides/identifiers#court-codes). |
-| `invalid_date` | A date field (`start`, `end`, or resolver `date`) was not a real `YYYY-MM-DD` date. | Reformat as `YYYY-MM-DD`. |
+| `invalid_date` | `start` or `end` was not a real `YYYY-MM-DD` date. | Reformat as `YYYY-MM-DD`. |
 | `invalid_date_range` | `start` was after `end`. | Swap them or fix the typo. |
 | `pagination_too_deep` | `offset + limit` exceeded 10,000 (the deepest page Elasticsearch will paginate into). | Narrow the search with court / date filters rather than paging deeper. |
 | `missing_identifier` | The `:id` path parameter was empty (after URL-decoding and trimming). | Provide a case ID, neutral citation, or action number. |
